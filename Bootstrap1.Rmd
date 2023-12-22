@@ -121,9 +121,8 @@ The population count from each country for 2023 is fround from Population Refern
 The data for COVID- 19 cases was found from John Hopkins Center for Systems Science and Engeneering(CSSE). The CSSE reports deaths, recovered, and active COVID cases.
 
 
-
 # t-test 
-A t-test was used on the animal fat variable to find the confidence intervals.
+A t-test was used on the animal fat variable to find the confidence intervals. This t-test is testing the difference between two groups to see if it is significantly different.
 
 # Bootstrap
 A bootstrap test was used on the animal fat variable. In many ways using a bootstrap model can be better than using a t-test due to the data in the bootstrap being changed more easily and it becoming more versitile.
