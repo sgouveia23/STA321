@@ -1,0 +1,183 @@
+---
+title: "Protein Supply Quantity  Amidst Covid-19"
+author: "Samantha Gouveia" 
+date: "12/21/2023"
+output:
+ html_document:
+ toc: yes
+ toc_depth: 4
+ toc_float: yes
+ fig_width: 6
+ fig_caption: yes
+ number_sections: yes
+ theme: readable
+editor_options:
+ chunk_output_type: console
+---
+
+
+
+```
+<style type="text/css">
+
+/* Cascading Style Sheets (CSS) is a stylesheet language used to describe the presentation of a document written in HTML or XML. it is a simple mechanism for adding style (e.g., fonts, colors, spacing) to Web documents. */
+}
+h1.title {
+  font-size: 24px;
+  color: DarkRed;
+  text-align: center;
+}
+h4.author { /* Header 4 - and the author and data headers use this too  */
+    font-size: 18px;
+  font-family: "Times New Roman", Times, serif;
+  color: DarkRed;
+  text-align: center;
+}
+h4.date { /* Header 4 - and the author and data headers use this too  */
+  font-size: 18px;
+  font-family: "Times New Roman", Times, serif;
+  color: DarkBlue;
+  text-align: center;
+}
+h1 { /* Header 3 - and the author and data headers use this too  */
+    font-size: 22px;
+    font-family: "Times New Roman", Times, serif;
+    color: darkred;   `
+    text-align: center;
+}
+h2 { /* Header 3 - and the author and data headers use this too  */
+    font-size: 18px;
+    font-family: "Times New Roman", Times, serif;
+    color: navy;
+    text-align: left;
+}
+
+h3 { /* Header 3 - and the author and data headers use this too  */
+    font-size: 15px;
+    font-family: "Times New Roman", Times, serif;
+    color: darkred;
+    font-face: bold;
+    text-align: left;
+}
+
+h4 { /* Header 4 - and the author and data headers use this too  */
+    font-size: 18px;
+    font-family: "Times New Roman", Times, serif;
+    color: darkred;
+    text-align: left;
+}
+/* Tab features */
+.nav>li>a {
+    position: relative;
+    display: block;
+    padding: 10px 15px;
+    color: #990000;
+}
+.nav-pills>li.active>a, .nav-pills>li.active>a:hover, .nav-pills>li.active>a:focus {
+    color: #ffffff;
+    background-color: #990000;
+}
+/*
+nav-pills>li:nth-child(2) {
+    background: green;
+ }
+ */
+</style>
+
+
+```{r setup, include=FALSE}
+
+pr <- read.csv("https://raw.githubusercontent.com/pengdsci/sta321/main/ww02/w02-Protein_Supply_Quantity_Data.csv", 
+               header = TRUE)
+
+
+library(knitr)
+library(leaflet)
+library(EnvStats)
+library(MASS)
+library(phytools)
+library(boot)
+
+  knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, 
+  results = TRUE, comment = FALSE, options(digits = 2 ))
+```
+
+
+# Introduction 
+
+The COVID-19 pandemic changed the way people look at their health in relation to their diet. The data set was collected by Food and Agriculture organization of the United Nations(FAO), Population Reference Bureau(PRB), John Hopkins Center for Systems Science and Engineering(CSSE), and Nutrition policy diet intake guideline from ChooseMyPlate.gov. The data set examines percent of protein intake per country during the pandemic.
+
+The data analysis focuses on the protein intake based on animal fat of each country and the average of the world. The analysis will allow us to see which countries have consumed the most animal fat and which countries have consumed the least. It will also allow us to help predict the trend of health of people based on animal fat consumption.
+
+# Data 
+ The data was found through Kaggle with 3 different data sets collect, protien intake, population count, and Covid-19 cases
+ 
+ Protien intake was data was found from the Food and Agriculture Organixation of the United Nation (FAO). The types of protien
+include
+
+The population count from each country for 2023 is fround from Population Refernce Bureau (PRB). 
+
+
+The data for COVID- 19 cases was found from John Hopkins Center for Systems Science and Engeneering(CSSE). The CSSE reports deaths, recovered, and active COVID cases.
+
+
+# t-test 
+A t-test was used on the animal fat variable to find the confidence intervals. This t-test is testing the difference between two groups to see if it is significantly different.
+
+# Bootstrap
+A bootstrap test was used on the animal fat variable. In many ways using a bootstrap model can be better than using a t-test due to the data in the bootstrap being changed more easily and it becoming more versitile.
+
+
+```{r Confidence Intervals, echo = FALSE}
+
+# t-test Confidence interval 
+tt <- t.test(pr$Animalfat)$conf.int
+
+# Bootstrap 
+
+bootmean <- NULL
+
+for (i in 1:1000) {
+  ithbootmean <- sample(pr$Animalfat, 170, replace = TRUE)
+  bootmean[i] <- mean(ithbootmean)
+}
+
+# Confidence Interval
+bt.CI <- quantile(bootmean, c(0.025, 0.975) )
+
+```
+
+# Results 
+The t-test for animal fat shows 95% CI[.9, .131]
+
+The bootstrap method for animal fat shows a 95% CI [.87, .131]
+
+```{r sample distribution}
+hist(bootmean, main = "Bootstrap Sampling Distribution")
+```
+
+The histogram shows a normal distribution and no assumptions need to be made which shows one way bootstrapping is effective. The Confidence intervals for the t-test is based on the bootstrap method. Therefore we see that the bootstrap is off by -.03 in the 2.5 percentile and is the same value for the 97.5 percentile.
+
+# Confidence interval discussion 
+ Many "elementary statistics" methods make it hard to find sample means without knowing the distributions of the data. By using the bootstrap method we allow for more advanced statistics to be preformed and can therefore solve without knowing the distributions.
+ 
+ 
+ Many "elementary statistic" methods require the data to follow assumptions such as normal distribution and equal variance for a t-test. Using the bootstrap method we do not follow assumptions about the data.This allows for the bootstrap method to be used on data that is non-parametric and non-normal.
+ 
+ Although bootstrapping is very useful opposed to "elementary statistics" for many reasons explained above. Bootstrapping is mainly used for small sample size. Having a large sample size will make the data normally distributed even if it should not be which can cause errors in our response. Although the bootstrap method may have problems it is overall a very good way to analyze data.
+ 
+ 
+ # References 
+ 
+ Ren, M.(2020). Protein_Supply_Quantity_Data.csv[Data set]. https://www.kaggle.com/datasets/mariaren/covid19-healthy-diet-dataset?select=Protein_Supply_Quantity_Data.csv
+
+FAO. (2023). Data collection. Food and Agriculture Organization of the United Nations. https://www.fao.org/food-agriculture-statistics/data-collection/en/
+
+PRB. (2023). International Data. PRB. https://www.prb.org/international/indicator/population/snapshot
+ 
+ 
+ 
+ 
+ 
+ 
+ 
