@@ -1,0 +1,648 @@
+---
+title: "Houses in Poland"
+author: "Samantha Gouveia"
+date: "12/28/2023"
+output:
+ html_document:
+ toc: yes
+ toc_depth: 4
+ toc_float: yes
+ fig_width: 6
+ fig_caption: yes
+ number_sections: yes
+ theme: readable
+editor_options:
+ chunk_output_type: inline
+---
+
+
+```{=html}
+
+<style type="text/css">
+
+/* Cascading Style Sheets (CSS) is a stylesheet language used to describe the presentation of a document written in HTML or XML. it is a simple mechanism for adding style (e.g., fonts, colors, spacing) to Web documents. */
+
+h1.title {  /* Title - font specifications of the report title */
+  font-size: 24px;
+  color: DarkRed;
+  text-align: center;
+  font-family: "Gill Sans", sans-serif;
+}
+h4.author { /* Header 4 - font specifications for authors  */
+  font-size: 20px;
+  font-family: system-ui;
+  color: DarkRed;
+  text-align: center;
+}
+h4.date { /* Header 4 - font specifications for the date  */
+  font-size: 18px;
+  font-family: system-ui;
+  color: DarkBlue;
+text-align: center;
+}
+h1 { /* Header 1 - font specifications for level 1 section title  */
+    font-size: 22px;
+    font-family: system-ui;
+    color: navy;
+    text-align: left;
+}
+h2 { /* Header 2 - font specifications for level 2 section title */
+    font-size: 20px;
+    font-family: "Times New Roman", Times, serif;
+    color: navy;
+    text-align: left;
+}
+
+h3 { /* Header 3 - font specifications of level 3 section title  */
+    font-size: 18px;
+    font-family: "Times New Roman", Times, serif;
+    color: navy;
+    text-align: left;
+}
+
+h4 { /* Header 4 - font specifications of level 4 section title  */
+    font-size: 18px;
+    font-family: "Times New Roman", Times, serif;
+    color: darkred;
+    text-align: left;
+}
+
+body { background-color:white; }
+
+.highlightme { background-color:yellow; }
+
+p { background-color:white; }
+
+</style>
+```
+
+```{r setup, include=FALSE}
+f <- read.csv("https://raw.githubusercontent.com/sgouveia23/STA321/main/Assign%203/Houses.csv", 
+header = TRUE) 
+
+
+
+   library(knitr)
+   library(leaflet)
+   library(EnvStats)
+   library(MASS)
+   library(phytools)
+   library(boot)
+   library(psych)
+   library(car)
+   library(dplyr)
+  library(ggplot2)
+library(caret)
+   
+  
+
+
+   
+   # Specifications of outputs of code in code chunks
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,   results = TRUE, comment = FALSE, options(digits = 4))
+
+```
+
+```{r summary}
+   f %>%
+  summary() %>%
+  t() %>%
+  kable(format = "markdown", caption = "Summary of Statistics", )
+```
+The summary of statistics show the minimum value, 1st quartile, median, 3rd quartile, mean, and maximum value. 
+
+# Report 
+
+The statistical report focuses on the house prices in Poland and the association between features of the homes
+The dependent variables in the report focus on location(Krakow, Warszawa, and Pozna), interior of house(floors,rooms,square meters), the year the house was built, and the house id number.
+
+
+# Variable description 
+Address : The Full house Address
+
+City: The city the house is located, Krakow, Warszawa, or Pozna
+
+id: The house id is the number order the house was built
+
+price: The price the house was sold for
+
+sq: The square meters of the house
+
+year: year the house was built 
+
+floor: The number of floors in the house
+
+room: The number of rooms in the house 
+
+longitude: Longitude of house location
+
+latitude: latitude of house location
+
+# Purpose of  Research 
+
+The purpose of the analysis is to see the association between the price of houses in Poland with the predictor variables, the different characteristics of the house. The report will also look at the difference of results using the full model and and reduced model.
+
+To obtain the results of the analysis the following will be used:
+
+Residual Analysis of the original model to check if the assumptions of the residuals are met using the initial model.
+
+A check for Multicollinearity 
+
+A Box-Cox transformation on both response and predictor and a Residual Analysis on the transformed model
+
+The removal of influential points and a Residual Analysis on the model
+
+A step wise regressions to find the best model and a Bootstrap analysis to show histogram density curves of each predictor and their confidence intervals
+
+A Bootstrap analysis on the residuals to find the histogram density curves of each predictor and their confidence interval
+
+A final model will be created to show the best coefficient for the predictors and the significance level for each predictor
+
+
+# Exploratory Data Analysis 
+The data set contains 23764 observations with 10 dependent variable, and one independent variable, Price.
+
+# Latitude
+
+```{r }
+
+lon <- f$longitude
+lat <- f$latitude 
+
+plot(lon, lat, main = "Houses in Poland")
+abline(v=18, h=52, col="red", lty=2)
+
+```
+
+The plot shows that there are 3 main spots houses were sold. There is a large majority in the first quadrant at (20,50) and in the second quadrant at (22,52). There is also a large group in the third quadrant at (18,52.5).
+
+
+# Linear model
+The initial linear model has 6 predictor variables.
+
+The linear model is:
+Price=β0+β1∗Longitude+β2∗Latitude+β3∗sq+β4∗floors+β5∗rooms+β6∗years +β7∗id+ϵ
+ 
+# Initial model
+We begin by finding the initial linear model to find the coefficients.
+```{r fig.align='center'}
+fm = f[, -c(1,2,3,6,7)]
+ff = lm(price ~ sq + rooms + floor + id + year, data = fm)
+
+ kable(summary(ff)$coef, caption = "Statistics of Regression Coefficients", digits = 2, scientific = TRUE)
+ 
+ alteredcoef_model <- format(ff$coefficients, scientific = FALSE, digits = 2) # Round to 2 decimal points
+
+```
+Using the given coefficients we find the linear model to be:
+
+Price = 489000.70 -.08*sq + 244215.27*rooms + 26626.10*floors + 1.28*id - 286.94*year + ϵ
+
+
+# Residual Analysis 
+
+4 plots are used to check for possible violations of residuals these include: 
+The model not having a normal distributed, Q-Q plot
+The linearity of the residuals, Residuals vs Fitted
+Constant variance, Scale-location
+Influential points, Residuals vs Leverage
+
+
+```{r residual analysis}
+
+par(mfrow = c(2,2))
+plot(ff)
+
+```
+The residual analysis plots show many important findings:
+
+Q-Q plot: Shows there is a normal distribution
+
+Residuals vs Fitted: Shows there is linearity in the variables
+
+Scale-Location: shows there is a non-constant variance
+
+Residual vs Leverage: shows there is an influential point ar 6199
+
+# VIF
+ VIF detects any issues of multicollinearity.
+```{r vifs}
+
+vif(ff)
+```
+The model shows that there are no issues with multicollinearity as all of the VIF values are 1.
+```{r Barplot}
+barplot(vif(ff), main = "VIF Values", horiz = FALSE, col = "steelblue")
+```
+# Goodness of Fit model
+The goodness of fit test model determines if a set of observed values match the expected ones in the model.
+```{r}
+select=function(m){ # m is an object: model e = m$resid                       
+ n0 = length(e)                       
+ SSE=(m$df)*(summary(m)$sigma)^2
+ 
+ R.sq=summary(m)$r.squared             
+ R.adj=summary(m)$adj.r                
+ MSE=(summary(m)$sigma)^2              
+ 
+ 
+ Cp=(SSE/MSE)-(n0-2*(n0-m$df))         # Mellow's p
+ AIC=n0*log(SSE)-n0*log(n0)+2*(n0-m$df)
+ 
+
+ SBC=n0*log(SSE)-n0*log(n0)+(log(n0))*(n0-m$df)
+
+ X=model.matrix(m) 
+ 
+ H=X%*%solve(t(X)%*%X)%*%t(X)  
+ 
+ d=e/(1-diag(H)) 
+ 
+ PRESS=t(d)%*%d   
+ 
+ tbl = as.data.frame(cbind(SSE=SSE, R.sq=R.sq, R.adj = R.adj, Cp = Cp, AIC = AIC, SBC = SBC, PRD = PRESS))
+ 
+ names(tbl)=c("SSE", "R.sq", "R.adj", "Cp", "AIC", "SBC", "PRESS")
+ tbl
+ }
+```
+
+The Goodness of fit model variables used are: 
+SSE : the sum of square error
+R^2 : coefficient of determination
+R^2 adj : adjusted coefficient of determination
+cp : Mellow's p
+AIC : Akaike information criterion
+SBC : schwarz bayesian information criterion
+Press : predicted residual error sum of squares
+
+# Box Cox Transformations 
+The Box-cox transformation is used on both response and predictor variables which allow to build regression models.
+
+```{r boxcox transformation}
+
+boxcox(price~ sq + year + floor + rooms + id, data = fm, lambda = seq(0.15, 0.25, length = 10))
+
+par(pty = "s", mfrow = c(2, 2), oma=c(.1,.1,.1,.1), mar=c(4, 0, 2, 0))
+
+boxcox(price ~ log(year) + sq + floor + rooms + id,data = fm, lambda = seq(0, 1, length = 10), 
+       xlab=expression(paste(lambda, ": log year")))
+
+boxcox(price ~ sq + year + floor + rooms + id,data = fm, lambda = seq(-0.5, 1, length = 10), 
+       xlab=expression(paste(lambda, ": year")))
+```
+The Box-Cox transformations allow lambda when applies to the predictor variables help stabilize the variance for a linear model. The Log year lambda does a very good job at stabilizing the variance as the plot shows almost a fully linear model. 
+For year lambda does not do as good when stabilizing the variance as the plot still shows a log function.
+
+```{r}
+tmodel <- lm((price)^0.11 ~sq + year + floor + rooms + id, data = fm)
+kable(summary(tmodel)$coef, caption = "log-transformed model", digits = 2)
+```
+```{r plot}
+par(mfrow = c(2,2))
+plot(tmodel)
+```
+The Box-Cox transformation shows that many of the residual analysis assumptions are met:
+
+Q-Q plot: Shows a normal distribution
+
+Residuals vs Fitted: Shows there is not linearity in the variables
+
+Scale-Location: shows there is a constant variance
+
+Residual vs Leverage: shows there is an influential point at 6199
+
+# Removal of influential value
+It is important to remove the influential points because they have a large impact on the regression of the model.
+
+```{r Influential Value}
+IVI <- fm[-6199, ]
+
+Iv <- lm(price ~ sq + year + floor + id + rooms, data = IVI)
+
+Imodel <- lm((price)^0.11 ~sq + year + floor + rooms + id, data = IVI)
+
+kable(summary(Imodel)$coef, caption = "log-transformed model", digits = 2)
+
+par(mfrow = c(2,2))
+plot(Imodel)
+
+```
+By removing the influential point the residuals look much worse using Box-Cox transformation.
+
+Q-Q plot: Shows a normal distribution
+
+Residuals vs Fitted: Shows there is linearity in the variables
+
+Scale-Location: shows there is a non-constant variance
+
+Residual vs Leverage: shows there are two new influential points at 18638 and 10799
+
+# Stepwise Regression
+
+Step wise regression is used to remove and add predictors to find the best variables in the data set to create the best preforming model
+```{r Stepwise}
+both <- step(Imodel, direction = "both")
+summary(both)
+```
+The Stepwise regression results show that by finding the lowest AIC-value = 78109, the best model is 
+
+Price = 4.19e+00 + 1.34e-01*rooms + 1.15e-02*floor +  1.70e-06*id - 1.64e-04*year + 3.27e-04*sq + ϵ
+
+# Bootstrap 
+```{r Bootstrap Regression}
+log.price <- lm(price ~ sq + floor + rooms + id + year,  data = IVI)
+
+
+cmtrx <- summary(log.price)$coef
+
+kable(cmtrx, caption = "Inferential Statistics of Final Model")
+
+##
+B = 1000       # choose the number of bootstrap replicates.
+## 
+num.p = dim(model.frame(log.price))[2]  # returns number of parameters in the model
+smpl.n = dim(model.frame(log.price))[1] # sample size
+## zero matrix to store bootstrap coefficients 
+coef.mtrx = matrix(rep(0, B*num.p), ncol = num.p)       
+## 
+for (i in 1:B){
+  bootc.id = sample(1:smpl.n, smpl.n, replace = TRUE) # fit final model to the bootstrap sample
+  log.price.btc = lm(log(price) ~  sq + floor +  
+                       rooms + id + year, data = IVI[bootc.id,])     
+  coef.mtrx[i,] = coef(log.price.btc) 
+  
+
+}
+```
+
+```{r hist}
+boot.hist = function(cmtrx, bt.coef.mtrx, var.id, var.nm){
+ x1.1 <- seq(min(bt.coef.mtrx[,var.id]), max(bt.coef.mtrx[,var.id]), length=300 )
+ 
+  y1.1 <- dnorm(x1.1, mean(bt.coef.mtrx[,var.id]), sd(bt.coef.mtrx[,var.id]))
+  
+   highestbar = max(hist(bt.coef.mtrx[,var.id], plot = FALSE)$density) 
+  
+   ylimit <- max(c(y1.1,highestbar))
+  hist(bt.coef.mtrx[,var.id], probability = TRUE, main = var.nm, xlab="", 
+       col = "azure1",ylim=c(0,ylimit), border="purple")
+  lines(x = x1.1, y = y1.1, col = "red3")
+  
+  lines(density(bt.coef.mtrx[,var.id], adjust=2), col="blue") 
+}
+par(mfrow=c(2,3))  # histograms of bootstrap coefs
+boot.hist(bt.coef.mtrx =coef.mtrx, var.id=1, var.nm ="Intercept" )
+boot.hist(bt.coef.mtrx =coef.mtrx, var.id=2, var.nm ="year" )
+boot.hist(bt.coef.mtrx=coef.mtrx, var.id=3, var.nm ="sq" )
+boot.hist(bt.coef.mtrx=coef.mtrx, var.id=4, var.nm ="rooms" )
+boot.hist(bt.coef.mtrx=coef.mtrx, var.id=5, var.nm ="floor" )
+```
+
+Using the hist() function we create 5 histograms, one for each predictor and the intercept. Each histogram has two density curves on them. The red density curve estimates regression coefficients and the corresponding standard error of regression.
+The blue curve is a non-parametric-data-driven estimate of density using the bootstrap distribution.
+
+Intercept: The intercept histogram shows that both density curves follow the same normal distribution as the histogram and are almost identical curves.
+
+Year: The year histogram is skewed to the right and so is the non-parametric density curve. The non-parametric curve is almost identical to the distribution of the histogram. However the regression curve starts much lower, closer to 0, and ends in the same spot as the histogram and non-parametric curve.
+
+Square meter: The Square meter histogram shows that both density curves follow the same normal distribution as the histogram and are almost identical curves.
+
+Rooms: The rooms histogram is skewed to the left and the non-parametric density curve follows the same skewed distribution. The regression curve starts much lower on the histogram and ends at the same spot as the non-parametric curve.
+
+Floor: The Floor histogram shows that both density curves follow the same normal distribution as the histogram and are almost identical curves.
+
+# Bootstrap Confidence Intervals
+Bootstrap confidence intervals are used to make assumption. Bootstrap is used when parametric assumptions can not be made for a distribution.
+
+```{r Regression Coefficient}
+
+num.p = dim(coef.mtrx)[2]  # number of parameters
+btr.ci = NULL
+btc.wd = NULL
+for (i in 1:num.p){
+  lci.025 = round(quantile(coef.mtrx[, i], 0.025, type = 2),8)
+  uci.975 = round(quantile(coef.mtrx[, i],0.975, type = 2 ),8)
+  btc.wd[i] = uci.975 - lci.025
+  btr.ci[i] = paste("[", round(lci.025,4),", ", round(uci.975,4),"]")
+}
+#as.data.frame(btc.ci)
+kable(as.data.frame(cbind(formatC(cmtrx,4,format="f"), btr.ci.95=btr.ci)), 
+      caption = "Regression Coefficient Matrix with 95% Residual Bootstrap CI")
+  
+```
+The results of the regression coefficient matrix show that id is not statistically significant. Id has a 95% CI, [0,0].
+Since the variable id has a zero within the confidence interval it shows insignificance at alpha = 0.05. However floor, rooms,sq, and year are statistically significant as 0 is not in their confidence interval.
+
+
+# Histogram of Residuals
+```{r fig.align='center', fig.width=7, fig.height=4}
+hist(sort(log.price$residuals),n=80,
+     xlab="Residuals",
+     col = "lightblue",
+     border="navy",
+     main = "Histogram of Residuals")
+```
+The Histogram of Residuals shows that the data is skewed right and is centered around 0. The 95% CI verifies that the histogram should be mainly around 0 as the all of the confidence intervals are close to 0.
+
+# Residual Bootstrap Regression 
+``` {r Final Model}
+
+log.p<- lm(log(price) ~  floor + sq +  
+                 rooms + id + year, data = IVI)
+modelres = log.price$residuals
+B=1000
+nump = dim(model.matrix(log.p))[2]
+sampn = dim(model.matrix(log.p))[1]
+
+b.mtrx <- matrix(rep(0,6*B),ncol = nump)
+
+for(i in 1:B){
+  logp = log.p$fitted.values + sample(log.p$residuals, sampn, replace = TRUE)
+  
+fm$log.p= log.p
+
+btrmodel = lm(price ~ floor + sq +rooms + id + year, data = IVI)
+
+b.mtrx[i,] = btrmodel$coefficients
+}
+```
+
+```{r Histogram}
+boot.hist = function(bt.coef.mtrx,var.id,var.nm){
+  
+   x1.1 <- seq(min(bt.coef.mtrx[,var.id]), max(bt.coef.mtrx[,var.id]), length=300 )
+   
+  y1.1 <- dnorm(x1.1, mean(bt.coef.mtrx[,var.id]), sd(bt.coef.mtrx[,var.id]))
+  
+ hb = max(hist(bt.coef.mtrx[,var.id], plot = FALSE)$density) 
+ 
+  ylimit <- max(c(y1.1,hb))
+  
+  hist(bt.coef.mtrx[,var.id], probability = TRUE, main = var.nm, xlab="", 
+       col = "azure1",ylim=c(0,ylimit), border="pink")
+  lines(x = x1.1, y = y1.1, col = "red3") 
+  
+   lines(density(bt.coef.mtrx[,var.id], adjust=3), col="blue")
+}
+
+par(mfrow=c(2,3))  # histograms of bootstrap 
+boot.hist(bt.coef.mtrx = coef.mtrx , var.id=1, var.nm ="price" )
+boot.hist(bt.coef.mtrx =coef.mtrx, var.id=2, var.nm ="year" )
+boot.hist(bt.coef.mtrx=coef.mtrx, var.id=3, var.nm ="sq" )
+boot.hist(bt.coef.mtrx=coef.mtrx, var.id=4, var.nm ="rooms" )
+boot.hist(bt.coef.mtrx=coef.mtrx, var.id=5, var.nm ="floor" )
+```
+
+
+Using the hist() function we create 5 histograms, one for each predictor and the intercept. Each histogram has two density curves on them. The red density curve estimates regression coefficients and the corresponding standard error of regression.
+The blue curve is a non-parametric-data-driven estimate of density using the bootstrap distribution.
+
+Intercept: The intercept histogram shows that both density curves follow the same normal distribution as the histogram and are almost identical curves. The red curve however goes a little farther to the right and is slightly taller then the blue curve.
+
+Year: The year histogram is skewed to the right and so is the non-parametric density curve. The non-parametric curve is almost identical to the distribution of the histogram. However the regression curve starts much lower, closer to 0, and ends in the same spot as the histogram and non-parametric curve.
+
+Square meter: The Square meter histogram shows that both density curves follow the same normal distribution as the histogram and are almost identical curves. The red curve is a little taller than the blue curve and stops before the blue curve does.
+
+Rooms: The rooms histogram is skewed to the left and the non-parametric density curve follows the same skewed distribution. The regression curve starts much lower on the histogram and ends at the same spot as the non-parametric curve.
+
+Floor: The Floor histogram shows that both density curves follow the same normal distribution as the histogram and are almost identical curves. The red curve is taller than the blue curve. The red curve also peaks at the top of the histogram whereas the blue peaks to the left side of the histogram.
+
+```{r Residual bootstrap CI}
+num.p = dim(coef.mtrx)[2]  # number of parameters
+btr.ci = NULL
+btr.wd = NULL
+for (i in 1:num.p){
+  lci.025 = round(quantile(b.mtrx[, i], 0.025, type = 2),8)
+  uci.975 = round(quantile(b.mtrx[, i],0.975, type = 2 ),8)
+  btr.wd[i] = uci.975 - lci.025
+  btr.ci[i] = paste("[", round(lci.025,4),", ", round(uci.975,4),"]")
+}
+
+kable(as.data.frame(cbind(formatC(cmtrx,4,format="f"), btr.ci.95=btr.ci)), 
+      caption = "Regression Matrix with 95% Residual Bootstrap CI")
+```
+The results of the regression coefficient matrix bootstrap show that each of the variables is statistically significant at the 95% CI. We conclude this finding by seeing that none of the confidence intervals have 0 in them. 
+```{r All statistics}
+
+kable(round(cbind(btc.wd, btr.wd),4), caption="width of the two bootstrap confidence intervals")
+
+kable(cmtrx, caption = "Inferential Statistics of Final Model")
+```
+The final model verifies our findings that each variable is statistically significant as each p-value < .001. 
+
+The final model is:
+
+Price = 479611.541 + 857.770*sq + 225016.696*rooms + 		26665.844*floors + 1.397*id - 283.961*year + ϵ
+
+The final model shows that as one predictor increases, all other predictors stay the same, the price of the house will increase/decrease by the amount of the coefficient. 
+
+Example: when we change the the id by one degree price of the house will increase by 1.397, all other predictors will stay the same.
+
+# Conclusion
+
+The completion of the project allows for many conclusions to be made. The residual Analysis assumptions were shown to have many violations in the initial model.
+
+Using the box-cox transformation to check residual assumptions allowed for many of the assumptions to be verified. The assumptions of normal distribution, linearity, and constant variance were all verified to be true. However there is an influential point at 6199.
+
+When removing the influential point and running a regression analysis the results are alarming. There is no constant variance or linearity and there is a normal distribution with outliers. The removal of the influential point creates two new point at 18638 and 10799. By removing the influential point the model does worse and shows that the point did not affect the model a significant amount.
+
+The final model verifies there is multicolinearity by having large coefficients instead of small ones.
+
+The report shows that each of the predictors have a strong affect on the House price in Poland. However there is a very low
+R^2 value at R^2= 0.384. The low power value shows that model is not a good predictor.
+
+The bootstrap method used that included the multicollinearity had a substantial difference from the one without. In the first bootstrap ID has a 95% CI [0,0]. Showing that ID is not statistically significant. When multicollinearity is removed and the bootstrap is run again each variable is statistically significant to the model.  
+
+In conclusion the final model shows that each of the predictors are statistically significant to the model and each of them has an association with price. Although each predictor is associated with price a logarithmic transformation was not needed
+
+Using houses that were more spread apart within each region would allow for broader assumption to be made about all of the cities. This would be extremely useful as the data set has a majority of all data points in three spots.
+
+The model although it is useful should be used carefully. The different methods used to create the model have shown violations within assumptions. Although the violations have been decreased by using bootstrapping and logarithmic transformation there can still be major impacts on the model results.
+
+# References
+
+Cegielski, D. (2021, March 4). House prices in Poland. Kaggle. https://www.kaggle.com/datasets/dawidcegielski/house-prices-in-poland/data 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
