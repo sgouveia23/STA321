@@ -1,0 +1,389 @@
+---
+title: "House prices in Poland"
+author: "Samantha Gouveia"
+date: "12/28/2023"
+output:
+ html_document:
+ toc: yes
+ toc_depth: 4
+ toc_float: yes
+ fig_width: 6
+ fig_caption: yes
+ number_sections: yes
+ theme: readable
+editor_options:
+ chunk_output_type: console
+---
+
+
+```{=html}
+
+<style type="text/css">
+
+/* Cascading Style Sheets (CSS) is a stylesheet language used to describe the presentation of a document written in HTML or XML. it is a simple mechanism for adding style (e.g., fonts, colors, spacing) to Web documents. */
+
+h1.title {  /* Title - font specifications of the report title */
+  font-size: 24px;
+  color: DarkRed;
+  text-align: center;
+  font-family: "Gill Sans", sans-serif;
+}
+h4.author { /* Header 4 - font specifications for authors  */
+  font-size: 20px;
+  font-family: system-ui;
+  color: DarkRed;
+  text-align: center;
+}
+h4.date { /* Header 4 - font specifications for the date  */
+  font-size: 18px;
+  font-family: system-ui;
+  color: DarkBlue;
+text-align: center;
+}
+h1 { /* Header 1 - font specifications for level 1 section title  */
+    font-size: 22px;
+    font-family: system-ui;
+    color: navy;
+    text-align: left;
+}
+h2 { /* Header 2 - font specifications for level 2 section title */
+    font-size: 20px;
+    font-family: "Times New Roman", Times, serif;
+    color: navy;
+    text-align: left;
+}
+
+h3 { /* Header 3 - font specifications of level 3 section title  */
+    font-size: 18px;
+    font-family: "Times New Roman", Times, serif;
+    color: navy;
+    text-align: left;
+}
+
+h4 { /* Header 4 - font specifications of level 4 section title  */
+    font-size: 18px;
+    font-family: "Times New Roman", Times, serif;
+    color: darkred;
+    text-align: left;
+}
+
+body { background-color:white; }
+
+.highlightme { background-color:yellow; }
+
+p { background-color:white; }
+
+</style>
+```
+
+```{r setup, include=FALSE}
+f <- read.csv("https://raw.githubusercontent.com/sgouveia23/STA321/main/Assign%203/Houses.csv", 
+header = TRUE) 
+
+
+    options(scipen = 2)
+
+   library(knitr)
+   library(leaflet)
+   library(EnvStats)
+   library(MASS)
+   library(phytools)
+   library(boot)
+   library(psych)
+   library(car)
+   library(dplyr)
+  library(caret)
+  
+
+
+   
+   # Specifications of outputs of code in code chunks
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,   results = TRUE, comment = FALSE, options(digits = 4))
+
+```
+
+# Data Description
+The data set used was found on Kaggle. The data set focuses on the price of houses in Poland
+
+The data set has 23764 observations, 10 dependent variable, and one dependent variable, price.
+
+# Data
+Address : The Full house Address
+
+City: The city the house is located, Krakow, Warszawa, or Pozna
+
+id: The house id is the number order the house was built
+
+price: The price the house was sold for
+
+sq: The square meters of the house
+
+year: year the house was built 
+
+floor: The number of floors in the house
+
+room: The number of rooms in the house 
+
+longitude: Longitude of house location
+
+latitude: latitude of house location
+
+# Purpose of  Research 
+
+The purpose of the analysis is to see the association between the price of houses in Poland with the predictor variables.
+
+# Location
+
+We find the location of the houses by using the latitude and longitude given to us in the data set. We do this by creating a plot that shows the latitude and longitude points.
+
+```{r location}
+
+lon <- f$longitude
+lat <- f$latitude 
+
+plot(lon, lat, main = "Sites of houses sold in 2012-2013")
+abline(v=121.529, h=24.96, col="red", lty=2)
+
+```
+
+# Linear model
+The initial linear model has 6 predictor variables.
+
+The linear model is:
+Price=β0+β1∗Longitude+β2∗Latitude+β3∗sq+β4∗floors+β5∗rooms+β6∗years +β7∗id+ϵ
+ 
+# Initial model
+We begin by finding the initial linear model to find the coefficients.
+```{r fig.align='center'}
+fm = f[, -c(1,2,3,6,7)]
+ff = lm(price ~ sq + rooms + floor + id + year, data = fm)
+
+ kable(summary(ff)$coef, caption = "Statistics of Regression Coefficients", digits = 2, scientific = TRUE)
+ 
+ alteredcoef_model <- format(ff$coefficients, scientific = FALSE, digits = 2) # Round to 2 decimal points
+
+```
+
+Using the given coefficients we find the linear model to be:
+
+Price = 489000.70 -.08*sq + 244215.27*rooms + 26626.10*floors + 1.28*id - 286.94*year + ϵ
+
+
+# Residual Analysis 
+4 plots are used to check for possible violations of residuals these include: 
+The model not having a normal distributed, Q-Q plot
+The linearity of the residuals, Residuals vs Fitted
+Constant variance, Scale-location
+Influential points, Residuals vs Leverage
+```{r residual analysis}
+
+par(mfrow = c(2,2))
+plot(ff)
+
+```
+The residual analysis plots show many important findings:
+
+Q-Q plot: Shows there is a normal distribution
+
+Residuals vs Fitted: Shows there is linearity in the variables
+
+Scale-Location: shows there is a non-constant variance
+
+Residual vs Leverage: shows there is an influential point ar 6199
+
+
+# VIF
+ VIF detects any issues of multicollinearity.
+```{r vifs}
+
+vif(ff)
+```
+The model shows there are no issues with multicollinearity as all the VIF values are at 1.
+```{r Barplot}
+barplot(vif(ff), main = "VIF Values", horiz = FALSE, col = "steelblue")
+```
+
+# Goodness of Fit model
+The goodness of fit test model determines if a set of observed values match the expected ones in the model.
+```{r}
+select=function(m){ # m is an object: model e = m$resid                       
+ n0 = length(e)                       
+ SSE=(m$df)*(summary(m)$sigma)^2
+ 
+ R.sq=summary(m)$r.squared             
+ R.adj=summary(m)$adj.r                
+ MSE=(summary(m)$sigma)^2              
+ 
+ 
+ Cp=(SSE/MSE)-(n0-2*(n0-m$df))         # Mellow's p
+ AIC=n0*log(SSE)-n0*log(n0)+2*(n0-m$df)
+ 
+
+ SBC=n0*log(SSE)-n0*log(n0)+(log(n0))*(n0-m$df)
+
+ X=model.matrix(m) 
+ 
+ H=X%*%solve(t(X)%*%X)%*%t(X)  
+ 
+ d=e/(1-diag(H)) 
+ 
+ PRESS=t(d)%*%d   
+ 
+ tbl = as.data.frame(cbind(SSE=SSE, R.sq=R.sq, R.adj = R.adj, Cp = Cp, AIC = AIC, SBC = SBC, PRD = PRESS))
+ 
+ names(tbl)=c("SSE", "R.sq", "R.adj", "Cp", "AIC", "SBC", "PRESS")
+ tbl
+ }
+```
+
+The Goodness of fit model variables used are: 
+SSE : the sum of square error
+R^2 : coefficient of determination
+R^2 adj : adjusted coefficient of determination
+cp : Mellow's p
+AIC : Akaike information criterion
+SBC : schwarz bayesian information criterion
+Press : predicted residual error sum of squares
+
+# Box Cox Transformations 
+
+```{r boxcox transformation}
+
+boxcox(price~ sq + floor + year + rooms, data = fm, lambda = seq(0.15, 0.25, length = 10))
+```
+
+The Box-cox transformation  shows that an effective lambda = .11 can be used to transform the model.
+
+```{r}
+tmodel <- lm((price)^0.11 ~sq + year + floor + rooms + id, data = fm)
+kable(summary(tmodel)$coef, caption = "log-transformed model", digits = 2)
+
+par(mfrow = c(2,2))
+plot(tmodel)
+```
+Once preforming the Box-cox transformation we see that the residual assumptions are all met, except for the influential point at 6199.
+
+# Removal of influential value
+It is important to remove the influential points because they have a large impact on the regression of the model.
+
+```{r Influential Value}
+IVI <- fm[-6199, ]
+
+Iv <- lm(price ~ sq + year + floor + id + rooms, data = IVI)
+
+Imodel <- lm((price)^0.11 ~sq + year + floor + rooms + id, data = IVI)
+
+kable(summary(Imodel)$coef, caption = "log-transformed model", digits = 2)
+
+par(mfrow = c(2,2))
+plot(Imodel)
+
+```
+
+By removing the influential point the residuals look much worse using Box-Cox transformation.
+
+Q-Q plot: Shows a normal distribution
+
+Residuals vs Fitted: Shows there is linearity in the variables
+
+Scale-Location: shows there is a non-constant variance
+
+Residual vs Leverage: shows there are two new influential points at 18638 and 10799
+
+
+# Bootstrap Regression
+```{r Bootstrap Regression Distribution, echo = FALSE}
+  
+beta0 <- numeric(1000)
+beta1 <- numeric(1000)
+beta2 <- numeric(1000)
+beta3 <- numeric(1000)
+beta4 <- numeric(1000)
+beta5 <- numeric(1000)
+beta6 <- numeric(1000)
+beta7 <- numeric(1000)
+beta8 <- numeric(1000)
+
+#Create vectors same count as income observations
+boot_vector <- 1:length(fm$price)
+
+for(i in 1:1000){
+  #Sample N for a bootstrap sample
+  cur_boot_sample <- sample(boot_vector, nrow(fm), replace = TRUE)
+  cur_boot_data <- fm[cur_boot_sample,]
+  
+  boot_reg <- lm(price~ sq + year + floor + rooms, data = fm)
+  
+    #Store coefficients
+  beta0[i] <- boot_reg$coefficients[1] 
+  beta1[i] <- boot_reg$coefficients[2]  
+  beta2[i] <- boot_reg$coefficients[3]
+  beta3[i] <- boot_reg$coefficients[4] 
+  beta4[i] <- boot_reg$coefficients[5]  
+  beta5[i] <- boot_reg$coefficients[6]
+  beta6[i] <- boot_reg$coefficients[7] 
+  beta7[i] <- boot_reg$coefficients[8]  
+  beta8[i] <- boot_reg$coefficients[9]
+  
+  
+}
+```
+
+```{r Bootstrap Confidence Intervals, echo = FALSE}
+
+  beta0_ci <- quantile(beta0, c(0.025, 0.975), digits = 2)
+  beta1_ci <- quantile(beta1, c(0.025, 0.975), digits = 2)
+  beta2_ci <- quantile(beta2, c(0.025, 0.975), digits = 2)
+  beta3_ci <- quantile(beta3, c(0.025, 0.975), digits = 2)
+  beta4_ci <- quantile(beta4, c(0.025, 0.975), digits = 2)
+ 
+  
+```
+ $\beta_0$: 95% CI[`r beta0_ci[1]`, `r beta0_ci[2]`]
+ 
+ $\beta_1$: 95% CI[`r beta1_ci[1]`, `r beta1_ci[2]`]
+ 
+ $\beta_2$: 95% CI[`r beta2_ci[1]`, `r beta2_ci[2]`]
+ 
+$\beta_3$: 95% CI[`r beta3_ci[1]`, `r beta3_ci[2]`]
+
+$\beta_4$: 95% CI[`r beta4_ci[1]`, `r beta4_ci[2]`]
+
+ The confidence intervals show that each of the variables are statistically significant as none of them have zero within their CI.
+```{r final model}
+
+kable(summary(Imodel)$coef, caption = "Inferential Statistics of Final Model", digits = 6, scientific = TRUE)
+
+```
+
+# Conclusions
+The completion of the project allows for many conclusions to be made. The residual Analysis assumptions were shown to have many violations in the initial model. 
+
+Using the box-cox transformation to check residual assumptions allowed for many of the assumptions to be verified. The assumptions of normal distribution, linearity, and constant variance were all verified to be true. However there is an influential point at 6199.
+
+The report shows the predictors are all statistically significant on the Price of the houses in Poland. However the model should be used carefully as there are many assumptions that are violates. 
+
+# References
+
+Cegielski, D. (2021, March 4). House prices in Poland. Kaggle. https://www.kaggle.com/datasets/dawidcegielski/house-prices-in-poland/data 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
