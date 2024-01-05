@@ -1,0 +1,307 @@
+---
+title: "College Data"
+author: "Samantha Gouveia"
+date: "1/4/24"
+output:
+ html_document:
+ toc: yes
+ toc_depth: 4
+ toc_float: yes
+ fig_width: 6
+ fig_caption: yes
+ number_sections: yes
+ theme: readable
+editor_options:
+ chunk_output_type: console
+---
+
+```{=html}
+
+<style type="text/css">
+
+/* Cascading Style Sheets (CSS) is a stylesheet language used to describe the presentation of a document written in HTML or XML. it is a simple mechanism for adding style (e.g., fonts, colors, spacing) to Web documents. */
+
+h1.title {  /* Title - font specifications of the report title */
+  font-size: 24px;
+  color: DarkRed;
+  text-align: center;
+  font-family: "Gill Sans", sans-serif;
+}
+h4.author { /* Header 4 - font specifications for authors  */
+  font-size: 20px;
+  font-family: system-ui;
+  color: DarkRed;
+  text-align: center;
+}
+h4.date { /* Header 4 - font specifications for the date  */
+  font-size: 18px;
+  font-family: system-ui;
+  color: DarkBlue;
+text-align: center;
+}
+h1 { /* Header 1 - font specifications for level 1 section title  */
+    font-size: 22px;
+    font-family: system-ui;
+    color: navy;
+    text-align: left;
+}
+h2 { /* Header 2 - font specifications for level 2 section title */
+    font-size: 20px;
+    font-family: "Times New Roman", Times, serif;
+    color: navy;
+    text-align: left;
+}
+
+h3 { /* Header 3 - font specifications of level 3 section title  */
+    font-size: 18px;
+    font-family: "Times New Roman", Times, serif;
+    color: navy;
+    text-align: left;
+}
+
+h4 { /* Header 4 - font specifications of level 4 section title  */
+    font-size: 18px;
+    font-family: "Times New Roman", Times, serif;
+    color: darkred;
+    text-align: left;
+}
+
+body { background-color:white; }
+
+.highlightme { background-color:yellow; }
+
+p { background-color:white; }
+
+</style>
+```
+
+```{r setup, include=FALSE}
+s <- read.csv("https://raw.githubusercontent.com/sgouveia23/STA321/main/Assignment%204/College_Data.csv", header = TRUE)
+
+
+    options(scipen = 2)
+
+   library(knitr)
+   library(leaflet)
+   library(EnvStats)
+   library(MASS)
+   library(phytools)
+   library(boot)
+   library(psych)
+   library(car)
+   library(dplyr)
+  library(caret)
+  
+
+
+   
+   # Specifications of outputs of code in code chunks
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,   results = TRUE, comment = FALSE, options(digits = 4))
+
+```
+
+# Case Study 
+The data set we are using for the case study, College Data, can be found on Kaggle. The data has 777 observations and 18 variables.
+
+# Data and Variable Description
+There are 18 variables in the data set.
+
+Private: Factor with yes or no indicating private or public university
+
+Apps: Number of applications the school received
+
+Accept: Number of students accepted 
+
+Enroll: Number of new students who enrolled 
+
+Top10perc: New students in top 10% of their high school class
+
+Top25perc: New students in top 25% of their high school class
+
+F.undergrad: Number of full time undergraduates
+
+P.undergrad: Number of part time undergraduates
+
+Outstate: out of state tuition 
+
+Room.Board: Cost of room and board 
+
+Books: Estimated cost of books
+
+Personal: Estimates personal spending
+
+PhD: Percent of faculty with a PhD
+
+Terminal: Percent of faculty with terminal degree
+
+S.F.Ratio: Student faculty ratio
+
+Perc.alumni: Percent of alumni who donate
+
+Expend: Instructional expenditure per student
+
+Grad.Rate: Graduation rate
+
+# Research Question 
+
+The objective of the case study is to identify the criteria necessary to get into a private college.
+
+
+
+I load the data  from R **library(mlbench)** in the following code. 
+I delete all colleges with missing values and keep only the colleges with complete records for the case study. The final analytic data has 777 colleges.
+
+We are going to look at the association between private College and acceptance
+```{r}
+library(mlbench) 
+    # make a copy of the data for data cleansing
+cc= na.omit(s)  
+ifelse(cc$Private =="Yes",1,0)
+
+cc$Private <- as.factor(cc$Private)
+c <- glm(Private ~ Accept , family = binomial(link = "logit"), data = cc) 
+
+ylimit = max(density(cc$Accept)$y)
+hist(cc$Accept, probability = TRUE, main = "Acceptance Distribution", xlab="", 
+       col = "azure1", border="lightseagreen")
+  lines(density(cc$Accept, adjust=2), col="blue") 
+  
+
+s.logit = glm(Private ~ Accept, family = binomial(link ="logit"), data = cc)
+```
+The Acceptance histogram is highly skewed to the right. We see that the acceptance is extremely high between 0-2500 and drastically drops after that. The acceptance continues to decrease until it reaches zero around 15000.
+
+
+
+# Exploratory Analysis 
+
+A pairwise scatter plot is used to identify any potential issues with the predictor variables. The final analytic model has 777 observations and 19 variables. Showing none of the predictors had any issues.
+
+```{r pairwise scatterplot}
+library(psych)
+pairs.panels(cc[,-19], 
+             method = "pearson", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE,  # show density plots
+             ellipses = TRUE # show correlation ellipses
+             )
+```
+
+ The pairwise scatter plot shows many patterns in the predictor variables.
+ 
+ All Predictor variables are unimodal. We see that Apps and Accept are significantly skewed to the right. Therefore we take a closer look at the two variables.
+
+``` {r histogram}
+
+par(mfrow=c(1,2))
+hist(cc$Accept, xlab="Accept", main = "")
+hist(cc$Apps, xlab = "Apps", main = "")
+```
+
+After Exploratory analysis, we decided to regroup Accept and App, we then defined dummy variables for the associated variables. The new variables will be used in the model during the search process.
+
+```{r confusion matrix}
+ac =cc$Accept
+a = ac
+a[ac %in% c(0:6000)] = "0-6000"
+a[ac %in% c(6001:7500)] = "6001-1700"
+a[ac %in% c(1701:3000)] = "1501-3000"
+
+ap = cc$Apps
+p = ap
+p[ap %in% c(0:25000)] = "0-25000"
+p[ap %in% c(25001:45000)] = "25001-45000"
+p[ap %in% c(45001:50000)] = "50000+"
+
+cc$p= p
+cc$a = a
+```
+
+A moderate correlations is observed between:
+Apps vs Accept, Top10perc vs Top25perc, Apps vs Enroll,Enroll Vs F.Undergrad, and Accept vs Enroll. None of the variables will be dropped as an automatic variable selection process will occur. The variable selection will remove potential redundant variables since some of them will be forced into the final model.
+
+Our goal of the report is an association analysis between a set of criteria for a private colleges. Therefore we do not preform variable transformations yet.
+
+
+Looking at the data set we know in a real world situation many of the variables are important. However when doing a statistical analysis those variables may not be statistically significant. Regardless of the statistical significance the variables will be included. In the college study Acceptance, Enroll,Top10perc, and Apps are considered significant risk factors. These variables will be included in the final model. 
+
+# Building the Multiple Logistic Regression Model
+ Based on the exploratory analysis we are building the full model and reduced model.
+ 
+```{r full model}
+full.model = glm(Private ~ Enroll + Top25perc + Accept + Apps + Top10perc + Outstate + S.F.Ratio + F.Undergrad, 
+          family = binomial(link = "logit"),  #  logit(p) = log(p/(1-p))!
+          data = cc)  
+kable(summary(full.model)$coef, 
+      caption="Summary of inferential statistics of the full model")
+```
+
+
+# Reduced Model
+
+```{r Reduced Model}
+reduced.model = glm(Private ~  Top10perc + Accept + Enroll + Outstate, 
+          family = binomial(link = "logit"),  # logit(p) = log(p/(1-p))!
+          data = cc) 
+kable(summary(reduced.model)$coef, 
+      caption="Summary of inferential statistics of the reduced model")
+```
+
+
+```{r automatic variable selection}
+final.model.forward  = stepAIC(reduced.model, 
+                      scope = list(lower=formula(reduced.model),upper=formula(full.model)),
+                      direction = "forward",   # forward selection
+                      trace = 0   # do not show the details
+                      )
+kable(summary(final.model.forward )$coef, 
+      caption="Summary of inferential statistics of the final model")
+```
+
+We are using the global goodness-of-fit statistics deviation residuals,null deviance, and AIC to asses our models. Using these statistics allows for a measure of the models performance. We see the deviance residual compares the full model to the standard model. Deviance residuals measure how much the probability of our models differ from observed portions of success. We see that bigger values show a worse fit and smaller values mean a better fit. Null Deviance compares the full model to a baseline model. A null deviance residual shows how well a response predicted the model with only the intercept. AIC is used to compare different possible models and determine the best model for the data.
+```{r Goodness of fit}
+
+global.measure=function(s.logit){
+dev.resid = s.logit$deviance
+dev.0.resid = s.logit$null.deviance
+aic = s.logit$aic
+goodness = cbind(Deviance.residual =dev.resid, Null.Deviance.Residual = dev.0.resid,
+      AIC = aic)
+goodness
+}
+goodness=rbind(full.model = global.measure(full.model),
+      reduced.model=global.measure(reduced.model),
+      final.model=global.measure(final.model.forward))
+row.names(goodness) = c("full.model", "reduced.model", "final.model")
+kable(goodness, digits = 2, caption ="Comparison of global goodness-of-fit statistics")
+```
+ 
+Once completing the goodness of fit statistics between the full and reduced model we see there are differences between some. The full model does better when it comes to deviance as it has a lower deviance residual and a lower AIC value. From the Global goodness of fit statistics we see the lowest AIC value is for the final.model which shows the best model fit when we compare them. The reduced model has the highest deviance value which shows the model is not a good fit.
+# Final Model
+
+In the exploratory analysis we observed 4 pairs of variables are linearly correlated. After automatics variable selection, Top25perc were dropped from the final model. Enroll, Accept, Apps,F.Undergrad, and Top10perc are still in the model. Although Accept and Top10perc are statistically insignificant, they are still clinically important to the report.
+
+```{r odds ratio}
+model.coef.stats = summary(final.model.forward)$coef
+odds.ratio = exp(coef(final.model.forward))
+out.stats = cbind(model.coef.stats, odds.ratio = odds.ratio)                 
+kable(out.stats,caption = "Summary Stats with Odds Ratios")
+```
+
+The odds ratio represents the odds an outcome will occur given a particular exposure, compared to the odss of the outcome occuring without the exposure. 
+
+For example the odds ratio for Top10perc = 1.0232. This shows that for each unit increase in Top10perc the odds of that outcome will increase by 2.3% with the other predictors staying the same.
+
+# Summary and Conclusion
+
+The case study focused on the association analysis between a set of criteria need to get into a Private colleges. The initial data set has 18 numerical and categorical variables.
+
+After automatic variable selection, we obtain 7 factors, Outstate, Apps, S.F.Ratio,F.Undergrad, Enroll (7 dummy variables), and Top10perc, Accept( not statistically significant but are clinically important).
+
+Since Top10perc, Accept, Enroll,F.Undergrad, and Outstate are considered to be major contributors to the criteria for going to a private College, we must include the 5 factors regardless of their significance.
+
+# References
+
+Gupta, Y. (2019, October 28). US College Data. Kaggle. https://www.kaggle.com/datasets/yashgpt/us-college-data 
+
+
