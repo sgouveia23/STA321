@@ -1,0 +1,472 @@
+---
+title: "Forest Fires"
+author: "Samantha Gouveia"
+date: "12/28/2023"
+output:
+ html_document:
+ toc: yes
+ toc_depth: 4
+ toc_float: yes
+ fig_width: 6
+ fig_caption: yes
+ number_sections: yes
+ theme: readable
+editor_options:
+ chunk_output_type: console
+---
+
+
+```{=html}
+
+<style type="text/css">
+
+/* Cascading Style Sheets (CSS) is a stylesheet language used to describe the presentation of a document written in HTML or XML. it is a simple mechanism for adding style (e.g., fonts, colors, spacing) to Web documents. */
+
+h1.title {  /* Title - font specifications of the report title */
+  font-size: 24px;
+  color: DarkRed;
+  text-align: center;
+  font-family: "Gill Sans", sans-serif;
+}
+h4.author { /* Header 4 - font specifications for authors  */
+  font-size: 20px;
+  font-family: system-ui;
+  color: DarkRed;
+  text-align: center;
+}
+h4.date { /* Header 4 - font specifications for the date  */
+  font-size: 18px;
+  font-family: system-ui;
+  color: DarkBlue;
+text-align: center;
+}
+h1 { /* Header 1 - font specifications for level 1 section title  */
+    font-size: 22px;
+    font-family: system-ui;
+    color: navy;
+    text-align: left;
+}
+h2 { /* Header 2 - font specifications for level 2 section title */
+    font-size: 20px;
+    font-family: "Times New Roman", Times, serif;
+    color: navy;
+    text-align: left;
+}
+
+h3 { /* Header 3 - font specifications of level 3 section title  */
+    font-size: 18px;
+    font-family: "Times New Roman", Times, serif;
+    color: navy;
+    text-align: left;
+}
+
+h4 { /* Header 4 - font specifications of level 4 section title  */
+    font-size: 18px;
+    font-family: "Times New Roman", Times, serif;
+    color: darkred;
+    text-align: left;
+}
+
+body { background-color:white; }
+
+.highlightme { background-color:yellow; }
+
+p { background-color:white; }
+
+</style>
+```
+
+```{r setup, include=FALSE}
+s <- read.csv("https://raw.githubusercontent.com/sgouveia23/STA321/main/projecct2/College_Data.csv", header = TRUE)
+
+
+    options(scipen = 2)
+
+   library(knitr)
+   library(leaflet)
+   library(EnvStats)
+   library(MASS)
+   library(phytools)
+   library(boot)
+   library(psych)
+   library(car)
+   library(dplyr)
+   library(caret)
+   library(pROC)
+  
+
+
+   
+   # Specifications of outputs of code in code chunks
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,   results = TRUE, comment = FALSE, options(digits = 4))
+
+```
+
+# Case Study 
+The data set we are using for the case study, College Data, can be found on Kaggle. The data was collected from many different colleges in the United states. The colleges are both a mix of private and public. 
+
+
+# Data and Variable Description
+There are 18 variables in the data set.
+
+Private: Factor with yes or no indicating private or public university
+
+Apps: Number of applications the school received
+
+Accept: Number of students accepted 
+
+Enroll: Number of new students who enrolled 
+
+Top10perc: New students in top 10% of their high school class
+
+Top25perc: New students in top 25% of their high school class
+
+F.undergrad: Number of full time undergraduates
+
+P.undergrad: Number of part time undergraduates
+
+Outstate: out of state tuition 
+
+Room.Board: Cost of room and board 
+
+Books: Estimated cost of books
+
+Personal: Estimates personal spending
+
+PhD: Percent of faculty with a PhD
+
+Terminal: Percent of faculty with terminal degree
+
+S.F.Ratio: Student faculty ratio
+
+Perc.alumni: Percent of alumni who donate
+
+Expend: Instructional expenditure per student
+
+Grad.Rate: Graduation rate
+
+# Research Question 
+
+The objective of the case study is to identify the criteria necessary to get into a private college.
+
+The report aims to explore the correlation between variables. 
+
+The report also aims to explore which model, with different variables and number of variables, will preform the best predictions.
+
+# Data cleaning
+
+I begin by removing all the colleges with missing values and keeping only those with complete records for the case study. 
+ The final analytic data has 777 colleges.
+ 
+We are going to begin by looking at the association between private College and acceptance
+
+```{r}
+library(mlbench) 
+    # make a copy of the data for data cleansing
+cc= na.omit(s)  
+#ifelse(cc$Private =="Yes",1,0)
+
+cc$Private <- as.factor(cc$Private)
+c <- glm(Private ~ Accept , family = binomial(link = "logit"), data = cc) 
+
+ylimit = max(density(cc$Accept)$y)
+hist(cc$Accept, probability = TRUE, main = "Acceptance Distribution", xlab="", 
+       col = "azure1", border="lightseagreen")
+  lines(density(cc$Accept, adjust=2), col="blue") 
+  
+
+s.logit = glm(Private ~ Accept, family = binomial(link ="logit"), data = cc)
+```
+
+The Acceptance histogram is highly skewed to the right. We see that the acceptance is extremely high between 0-2500 and drastically drops after that. The acceptance continues to decrease until it reaches zero around 15000.
+
+
+# Exploratory Analysis
+
+A pairwise scatter plot is used to identify any potential issues with the predictor variables. The final analytic model has 777 observations and 19 variables. Showing none of the predictors had any issues.
+
+```{r pairwise scatterplot}
+pairs.panels(cc[,-11], 
+             method = "pearson", 
+             hist.col = "#00AFBB",
+             density = TRUE,  
+             ellipses = TRUE 
+             )
+```
+
+ The pairwise scatter plot shows many patterns in the predictor variables.
+ 
+
+ All Predictor variables are unimodal. We see that Apps and Accept are significantly skewed to the right. Therefore we take a closer look at the two variables.
+ 
+After Exploratory analysis, we decided to regroup Accept and App, we then defined dummy variables for the associated variables. The new variables will be used in the model during the search process.
+
+
+```{r confusion matrix}
+ac =cc$Accept
+l = ac
+l[ac %in% c(0:6000)] = "0-6000"
+l[ac %in% c(6001:7500)] = "6001-1700"
+l[ac %in% c(1701:3000)] = "1501-3000"
+
+ap = cc$Apps
+p = ap
+p[ap %in% c(0:25000)] = "0-25000"
+p[ap %in% c(25001:45000)] = "25001-45000"
+p[ap %in% c(45001:50000)] = "50000+"
+
+cc$p = p
+cc$l = l
+```
+
+A moderate correlations is observed between:
+Apps vs Accept, Top10perc vs Top25perc, Apps vs Enroll,Enroll Vs F.Undergrad, and Accept vs Enroll. None of the variables will be dropped as an automatic variable selection process will occur. The variable selection will remove potential redundant variables since some of them will be forced into the final model.
+
+Our goal of the report is an association analysis between a set of criteria for a private colleges. Therefore we do not preform variable transformations yet.
+
+
+Looking at the data set we know in a real world situation many of the variables are important. However when doing a statistical analysis those variables may not be statistically significant. Regardless of the statistical significance the variables will be included. In the college study Acceptance, Enroll,Top10perc, and Apps are considered significant risk factors. These variables will be included in the final model. 
+
+# Standizing numerical Predictor variables 
+
+When standardizing a numerical predictor variable we are subtracting from the sample mean and dividing it by the standard deviation. Once that is complete we get a zero mean and standard deviation. 
+
+We use standardizing on regression models to reduce multicollinearity and the associates problems that are caused by having higher order terms.
+
+Standardizing the variables also ensures that the coefficients are on the same scale and can help make interpretations of the results straightforward. 
+
+
+```{r predictor variables}
+
+## standardizing numerical variables
+
+cc$sd. = (cc$Enroll-mean(cc$Enroll))/sd(cc$Enroll)
+
+cc$sd.Enroll = (cc$Enroll-mean(cc$Enroll))/sd(cc$Enroll)
+
+cc$sd.Top10perc = (cc$Top10perc-mean(cc$Top10perc))/sd(cc$Top10perc)
+
+cc$sd.Top25perc = (cc$Top25perc-mean(cc$Top25perc))/sd(cc$Top25perc)
+
+cc$sd.PhD = (cc$PhD-mean(cc$PhD))/sd(cc$PhD)
+
+cc$sd.Grad.Rate = (cc$Grad.Rate-mean(cc$Grad.Rate))/sd(cc$Grad.Rate)
+
+cc$sd.Outstate = (cc$Outstate-mean(cc$Outstate))/sd(cc$Outstate)
+
+sd.cc = cc[, -c(1,3:8)]
+
+```
+
+Once standardizing of the predictor variables is complete we remove variables from the dataset. We keep only our response variable, the standardized variables, and the original version of the standardized variables. The combination of these variables will create the new data set used for the remainder of the report.
+
+# Data splitting 
+
+We split the data into two subsets without replacement. 80% of the data is used as training data and will search candidate model, validate them, and identify the final model using the cross-validation method. The 20% will be used to assess the performance of the final model.
+
+
+```{r Data Split}
+
+n <- dim(sd.cc)[1]
+train.n <- round(0.8*n)
+train.id <- sample(1:n, train.n, replace = FALSE)
+
+train <- sd.cc[train.id, ]
+test <- sd.cc[-train.id, ]
+
+```
+
+# Best model identification
+
+To find the best model we are going to be using a full, reduced, and final model. The models will be based on the step-wise variable selection as the three candidate models. 
+
+We will use both the predictive error values and size of the model to choose the best model.
+
+# Cross-validation model identificantion
+A cross validation model identification can provide several advantages these include: detecting over fitting and estimating a models performance more accurately.
+
+The cross validation model will split our data into multiple training and test data sets. The different splits constitute different cross validation methods.
+
+We will use k-fold cross validation as it helps mitigate risks of over fitting and will provide a more reliable assessment of how well the model is expected to preform on unseen data. We will use 5-fold cross validation as the training data is relatively small and to ensure the validation data set has enough colleges.
+
+We will then create three candidate models which will allow us to find the PE(prediction errors) of the candidate models.
+
+```{r}
+## 5-fold cross-validation
+k=5
+
+fold.size = floor(dim(train)[1]/k)
+
+PE1 = rep(0,5)
+PE2 = rep(0,5)
+PE3 = rep(0,5)
+
+
+for(i in 1:k){
+  
+  valid.id = (fold.size*(i-1)+1):(fold.size*i)
+  valid = train[valid.id, ]
+  train.dat = train[-valid.id,]
+  
+  
+  ##  full model
+  candidate01 = glm(Private ~ sd.Top10perc + sd.Top25perc + sd.PhD + sd.Grad.Rate + 
+                    sd.Enroll + sd.Outstate, family = binomial(link = "logit"),  
+                    data = train.dat) 
+  
+  
+    candidate03 = glm(Private ~ sd.Top10perc + sd.Grad.Rate  + sd.Outstate , 
+                    family = binomial(link = "logit"),  
+                    data = train.dat) 
+## 
+   candidate02 = stepAIC(candidate01, 
+                      scope = list(lower=formula(candidate03),upper=formula(candidate01)),
+                      direction = "forward",  
+                      trace = 0 )               
+                      
+   
+      pred01 = predict(candidate01, newdata = valid, type="response")
+   pred02 = predict(candidate02, newdata = valid, type="response")
+   pred03 = predict(candidate03, newdata = valid, type="response")
+   
+   pre.outcome01 = ifelse(as.vector(pred01) > 0.5, "Yes", "No")
+   pre.outcome02 = ifelse(as.vector(pred02) > 0.5, "Yes", "No")
+   pre.outcome03 = ifelse(as.vector(pred03) > 0.5, "Yes", "No")
+   
+     PE1[i] = sum(pre.outcome01 == valid$Private )/length(pred01)
+   PE2[i] = sum(pre.outcome02 == valid$Private )/length(pred02)
+   PE3[i] = sum(pre.outcome02 == valid$Private )/length(pred03)
+   
+}
+
+
+avg.pe = cbind(PE1 = mean(PE1), PE2 = mean(PE2), PE3 = mean(PE3))
+
+kable(avg.pe, caption = "Average of prediction errors of candidate models")
+```
+
+We see in the full model that l and p are highly correlated with one another. l and p are also highly correlated with variables in the full model. Due to the high correlation we remove a and l from the full and reduced model.
+
+In candidate 2 we use a forward step wise as it help to improve model performance by selecting features based on individual and combined predicted power. Forward selection also helps building models that have a higher accuracy,precision,recall, other performance metrics. 
+
+To find the pre.outcomes we use the ifelse function. The function takes the conditions yes,no,and missing into account when determining the output. 
+
+Once completing the cross validation model identification we obtain the PE values for PE1,2,and 3. We find that each of the PE values are the same at PE = .9387. Due to them being the same we will use model 2 as the predictive model because it is simpler than model 1. The prediction error is also very good as the closer the value is to one the better it is at predicting errors. 
+# Final model reporting 
+
+The cross validation procedure was used to find the best model with the pre-selected cut off of 0.5. The final model will show the actual accuracy report based on the withheld test data.
+
+```{r Final model}
+
+pred02 = predict(candidate02, newdata = test, type="response")
+pred02.outcome = ifelse(as.vector(pred02)>0.5, "Yes", "No")
+
+accuracy = sum(pred02.outcome == valid$Private)/length(pred02)
+kable(accuracy, caption="The actual accuracy of the final model")
+```
+
+After running the code we find the actual accuracy for the final model is x = 0.6.
+
+When using a random split method for training and testing data when the code is rerun the actual accuracy value will be slightly different.
+
+# ROC analysis Global Performance
+
+An ROC curve is a graph that shows the performance of classification models at all classification thresholds. 
+The ROC curve is used to compare the global performance of binary predictive models. 
+
+We are going to construct the curve based on the training data and calculate the corresponding AUC values. 
+
+The first thing we are doing is estimating the TPR(true positive rate, sensitivity) and the FPR(false positive rate, 1- specificity) at each cut off probability for each of the three candidate models.
+
+```{r}
+
+TPR.FPR=function(pred){
+  prob.seq = seq(0,1, length=50)  
+  pn=length(prob.seq)
+  true.lab=as.vector(train$Private)
+  TPR = NULL
+  FPR = NULL
+  ##
+  for (i in 1:pn){
+   pred.lab = as.vector(ifelse(pred >prob.seq[i],"Yes", "No"))
+   TPR[i] = length(which(true.lab=="Yes" & pred.lab=="Yes"))/length(which(true.lab=="Yes"))
+   FPR[i] = length(which(true.lab=="No" & pred.lab=="Yes"))/length(which(true.lab=="No"))
+  }
+   cbind(FPR = FPR, TPR = TPR)
+}
+```
+
+The three candidate models are being created using the same response variable and predictor variables as used before. The only change in the data we are using, the new data set is called train.
+
+Once the candidate models are created the predictions will be fun for each using the new data. The ROC curve will be created using the prediction variables we created. 
+
+The AUC(area under the curve) is a way of measuring the performance of a model. The AUC values will be created using the data set and the response variable. An AUC value will be created for each of the three models.
+
+```{r}
+##  full model
+  candidate01 = glm(Private ~ l + sd.Enroll +sd.Top10perc + sd.Top25perc + sd.PhD + 
+                    sd.Grad.Rate + sd.Outstate , family = binomial(link = "logit"),  
+                    data = train) 
+## reduced model
+    candidate03 = glm(Private ~  l + sd.Enroll + sd.Top10perc + sd.Outstate, 
+                    family = binomial(link = "logit"),  
+                    data = train) 
+  
+     candidate02 = stepAIC(candidate01, 
+                      scope = list(lower=formula(candidate03),upper=formula(candidate01)),
+                      direction = "forward",   
+                      trace = 0)                
+                      
+pred01 = predict.glm(candidate01, newdata = train, type="response") 
+pred02 = predict.glm(candidate02, newdata = train, type="response")
+pred03 = predict.glm(candidate03, newdata = train, type="response")
+
+
+## ROC curve
+ plot(TPR.FPR(pred01)[,1], TPR.FPR(pred01)[,2], 
+      type="l", col=2, lty=1, xlim=c(0,1), ylim=c(0,1),
+      xlab = "FPR: 1 - specificity",
+      ylab ="TPR: sensitivity",
+      main = "ROC curves of the three candidate models",
+      cex.main = 0.8,
+      col.main = "red")
+ lines(TPR.FPR(pred02)[,1], TPR.FPR(pred02)[,2],  col=3, lty=2)
+ lines(TPR.FPR(pred03)[,1], TPR.FPR(pred03)[,2],  col=4, lty=3)  
+ 
+  ##
+  category = train$Private == "Yes"
+  ROCobj01 <- roc(category, as.vector(pred01))
+  ROCobj02 <- roc(category, as.vector(pred02))
+  ROCobj03 <- roc(category, as.vector(pred03))
+  AUC01 = round(auc(ROCobj01),4)
+  AUC02 = round(auc(ROCobj02),4)
+  AUC03 = round(auc(ROCobj03),4)
+  ##
+  legend("bottomright", c(paste("Full model: AUC = ",AUC01), 
+                         paste("Stepwise model: AUC =",AUC02),
+                         paste("reduced model: AUC =", AUC03)),
+        col=2:4, lty=1:3, cex = 0.8, bty="n")
+```
+
+When looking at the ROC curves we can see that the full model and step wise model are better than the reduced model. The full model and step wise model also have the same the same ROC curve and AUC value. The final model we will use for the report is the step wise model. This is due to the step wise model being simpler than the full model. The AUC value for both full and step wise model = .9787 and for the reduced model = .9744. We conclude from these values that the model is very capable of distinguishing between classes as the value is close to one.
+
+
+# Conclusion
+
+The case study focused on the criteria necessary to get into a private college. We used three candidate model and both cross validation and ROC curves to select the final model. We found that both the ROC curve and the cross validation selected the same final model. 
+
+
+The high ROC and PE values show that in a real world scenario the step wise model would have a highly accurate prediction and therefore could be used in a work place. However when looking at the actual accuracy of the final model we get only a 60% correct prediction rate. Although a 60-to-40 ratio makes for a good prediction rate the usefulness of the model decreases. The ROC AUC is generally seen as more a more important measure of how good a model will be as it provides a more comprehensive evaluation of the models performance. The actual accuracy of .6 is something to be aware of however it is not something that should be taken with great affect.
+
+The report also found there is a high correlation between the accept, apps, enroll, and top10perc variables. This allows for us to conclude that these factors will be the most important predictors of getting into a private college.
+
+# References
+
+Gupta, Y. (2019, October 28). US College Data. Kaggle. https://www.kaggle.com/datasets/yashgpt/us-college-data
+
+
+
+
+
+
+
