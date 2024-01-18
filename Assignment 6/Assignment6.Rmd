@@ -1,0 +1,352 @@
+---
+title: "Monthly Gas Prices"
+author: "Samantha Gouveia"
+date: "12/28/2023"
+output:
+ html_document:
+ toc: yes
+ toc_depth: 4
+ toc_float: yes
+ fig_width: 6
+ fig_caption: yes
+ number_sections: yes
+ theme: readable
+editor_options:
+ chunk_output_type: console
+---
+
+
+```{=html}
+
+<style type="text/css">
+
+/* Cascading Style Sheets (CSS) is a stylesheet language used to describe the presentation of a document written in HTML or XML. it is a simple mechanism for adding style (e.g., fonts, colors, spacing) to Web documents. */
+
+h1.title {  /* Title - font specifications of the report title */
+  font-size: 24px;
+  color: DarkRed;
+  text-align: center;
+  font-family: "Gill Sans", sans-serif;
+}
+h4.author { /* Header 4 - font specifications for authors  */
+  font-size: 20px;
+  font-family: system-ui;
+  color: DarkRed;
+  text-align: center;
+}
+h4.date { /* Header 4 - font specifications for the date  */
+  font-size: 18px;
+  font-family: system-ui;
+  color: DarkBlue;
+text-align: center;
+}
+h1 { /* Header 1 - font specifications for level 1 section title  */
+    font-size: 22px;
+    font-family: system-ui;
+    color: navy;
+    text-align: left;
+}
+h2 { /* Header 2 - font specifications for level 2 section title */
+    font-size: 20px;
+    font-family: "Times New Roman", Times, serif;
+    color: navy;
+    text-align: left;
+}
+
+h3 { /* Header 3 - font specifications of level 3 section title  */
+    font-size: 18px;
+    font-family: "Times New Roman", Times, serif;
+    color: navy;
+    text-align: left;
+}
+
+h4 { /* Header 4 - font specifications of level 4 section title  */
+    font-size: 18px;
+    font-family: "Times New Roman", Times, serif;
+    color: darkred;
+    text-align: left;
+}
+
+body { background-color:white; }
+
+.highlightme { background-color:yellow; }
+
+p { background-color:white; }
+
+</style>
+```
+
+```{r setup, include=FALSE}
+s <- read.csv("https://raw.githubusercontent.com/sgouveia23/STA321/main/Assignment%206/monthly_csv.csv", header = TRUE)
+
+
+    options(scipen = 2)
+
+   library(knitr)
+   library(leaflet)
+   library(EnvStats)
+   library(MASS)
+   library(phytools)
+   library(boot)
+   library(psych)
+   library(car)
+   library(dplyr)
+   library(caret)
+   library(pROC)
+   library(pander)
+   library(forecast)
+  
+
+
+   
+   # Specifications of outputs of code in code chunks
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,   results = TRUE, comment = FALSE, options(digits = 4))
+
+```
+
+
+
+
+# Introduction
+
+The data for the case study focuses on major natural gas prices. The data comes from the U.S energy information Administration EIA Data. The dataset contains monthly prices of natural gas starting from January 1997 to August 2020.
+
+# Data Description 
+
+The data set focuses on the monthly gas prices from January 1997 - August 2020.
+
+Month: Month of each year average gas price
+
+Price: Price of gas each month
+
+
+# Research Question
+
+The research question is, given the monthly gas prices from January 1997 - August 2020, can predict the monthly gas prices.
+
+We are also going to be looking to see what  patterns repeat for fixed periods, underlying trends of the metrics, and if there are residuals.
+
+
+
+# Define time series object
+
+A time series is a data set that tracks a sample over time. Using time series allows us to see what factors influence certain variables from period to period.
+
+The Time series analysis we will be using is looking at the monthly prices of gas. Since the data is monthly we will have a data frequency = 12 to define the series object. 
+
+
+```{r}
+
+n.row = dim(s)[1]
+data.m = s[(n.row-150):n.row, ]
+```
+
+
+```{r}
+price = ts(data.m[,2], frequency = 12, start = c(2007, 1))
+par(mar=c(2,2,2,2))
+plot(price, main="US Gas Price Rates Between Jan, 2007 and August, 2020", ylab="Monthly Rate", xlab="")
+```
+
+The Plot shows the dollar amount of gas prices from 2008- 2020. We see the gas prices soar in 2007 and drastically drop in 2008. 
+
+# Forecasting with decomposing 
+
+A forecast with decomposition breaks down a time series into its own component parts. The purpose of the decomposition model is to understand the model bettwe anf its underlying structures.
+
+To decompose a time series we must calculate the trend, seasonality, and error manually. These steps have already been done and we therefore can begin our decomposition of the data.
+
+Since the seasonality of a time series is scalar, we are able to deseasonalize the series using decomposition and then adjust the forecasted values.
+
+There will be two different types of forecast decomposition used to analyze our data, classical and STL. Both types of decomposition will be used analyzing the additive model. 
+
+The additive model is:
+
+Additive Model: $Y_t = T_t + S_t + R_t$
+
+R = Residual
+
+T = Trend  
+
+S= Seasonality
+
+
+# Classical Decomposition
+
+ Classical decomposition is used to decompose a time series into its fundamental components.
+There are two basic methods used in classical decomposition additive and multiplicative.
+
+We will start by using the function decompose() to extract the individual components given from the additive model based on monthly gas price. 
+
+The seasonal period for the time series will be m = 12 for monthly data. We will assume the seasonal component stays constant from year to year.
+
+```{r}
+
+cls.decomp = decompose(price)
+par(mar=c(2,2,2,2))
+plot(cls.decomp, xlab="")
+```
+
+The trend-cycle shows in 2008 there was a massive drop in gas prices, showing there must have been a significant impact on the gas industry during this time. From 2009-2014 we see the gas prices fluctuate at about the same rate. However in 2015 we see the gas prices decrease, increase slightly, and continue to decrease after that.
+
+The random section of the plot shows little fluctuation between the years. This indicates that the decomposition model has fully captured all of the underlying patterns in our time series with a few exceptions.
+
+The observed and trend plot have almost the same line. This displays that the model has seperated the long term from the other components. We can assume the model has a good fit and will be accurate when predicting the trend due to this finding.
+
+
+# STL Decomposition
+
+STL,Seasonal and Trend decomposition using Loess, is a versatile and robust method for decomposing time series.
+
+The STL combines classical time series and modern locally estimated scatter plot smoothing. The Seasonal trend used in an STL time series is a fixed pattern. 
+
+The time series benefits from STL because it uses LOESS to estimate the nonlinear trend more accurately.
+
+For our study we will be using the stl() function to decompose the time series into three components.
+
+LOESS, a robust non-parametric smoothing method, will be used on the model to estimate the nonlinear trend of Price.
+
+```{r}
+
+stl.decomp=stl(price, s.window = 12)
+par(mar=c(2,2,2,2))
+plot(stl.decomp)
+```
+
+We see the trend-cycle drops significantly around 2008, indicating there may have been a major economic change. The price of gas then fluctuates between 2009-2013.  After 2013 we see the price of gas continue to fluctuate at a much smaller rate and then decrease until 2020.
+
+The seasonal component decreases slowly from 2007-2012. From 2013-2020 the component does not change overtime, showing the robust option is used here.
+
+The majority of the remainder stay close to zero with a few outliers in 2007 at 2 and -2. We see another outlier at 2013 at 1.
+
+
+When looking at both the classical and STL decomposition methods we see that classical does not work as well as the STL method. This is due to the robustness of the LOESS component used within the STL method. STL decomposition allows for more flexibility and is better equipped to deal with outliers.
+
+
+# Training and testing data
+
+To validate our time series model we are going to split our data into two parts, a training and test set.
+The last 7 periods of the data will be used for testing. The rest of the data will be used to train the forecast model.
+
+The training set will fit the model, we will have 4 training set sizes these include 48, 73, 109, and 144.
+
+The test set will calculate the prediction error with size 7.
+
+```{r}
+
+ini.data = data.m[,2]
+n0 = length(ini.data)
+##
+train.data01 = data.m[1:(n0-7), 2]
+train.data02 = data.m[37:(n0-7), 2]
+train.data03 = data.m[73:(n0-7), 2]
+train.data04 = data.m[97:(n0-7), 2]
+## last 7 observations
+test.data = data.m[(n0-6):n0,2]
+##
+train01.ts = ts(train.data01, frequency = 12, start = c(2007, 1))
+train02.ts = ts(train.data02, frequency = 12, start = c(2011, 1))
+train03.ts = ts(train.data03, frequency = 12, start = c(2015, 1))
+train04.ts = ts(train.data04, frequency = 12, start = c(2020, 1))
+##
+stl01 = stl(train01.ts, s.window = 12)
+stl02 = stl(train02.ts, s.window = 12)
+stl03 = stl(train03.ts, s.window = 12)
+stl04 = stl(train04.ts, s.window = 12)
+## Forecast with decomposing
+fcst01 = forecast(stl01,h=7, method="naive")
+fcst02 = forecast(stl02,h=7, method="naive")
+fcst03 = forecast(stl03,h=7, method="naive")
+fcst04 = forecast(stl04,h=7, method="naive")
+```
+
+# Test errors
+
+When using forecasting a forecast error, unpredictable part of an observation, is the difference between an observed value and its forecast.
+
+We will perform an error analysis to compare the errors from the forecast results and the different sample sizes.
+
+We will be using scale-dependent errors for our analysis.
+
+The results of the test error will show the MSE, mean square error, and MAPE, mean absolute percentage error, for each of the training sets.
+
+```{r}
+
+## To compare different errors, we will not use the percentage for MAPE
+PE01=(test.data-fcst01$mean)/fcst01$mean
+PE02=(test.data-fcst02$mean)/fcst02$mean
+PE03=(test.data-fcst03$mean)/fcst03$mean
+PE04=(test.data-fcst04$mean)/fcst04$mean
+###
+MAPE1 = mean(abs(PE01))
+MAPE2 = mean(abs(PE02))
+MAPE3 = mean(abs(PE03))
+MAPE4 = mean(abs(PE04))
+###
+E1=test.data-fcst01$mean
+E2=test.data-fcst02$mean
+E3=test.data-fcst03$mean
+E4=test.data-fcst04$mean
+##
+MSE1=mean(E1^2)
+MSE2=mean(E2^2)
+MSE3=mean(E3^2)
+MSE4=mean(E4^2)
+###
+MSE=c(MSE1, MSE2, MSE3, MSE4)
+MAPE=c(MAPE1, MAPE2, MAPE3, MAPE4)
+accuracy=cbind(MSE=MSE, MAPE=MAPE)
+row.names(accuracy)=c("n.144", "n.109", "n. 73", "n. 48")
+kable(accuracy, caption="Error comparison between forecast results with different sample sizes")
+```
+
+# Error curves
+
+```{r}
+
+plot(1:4, MSE, type="b", col="darkred", ylab="Error", xlab="",
+ ylim=c(0.05,0.25),xlim = c(0.5,4.5), main="Error Curves", axes=FALSE)
+labs=c("n=144", "n=109", "n=73", "n=48")
+axis(1, at=1:4, label=labs, pos=0.4)
+axis(2)
+lines(1:4, MAPE, type="b", col="blue")
+text(1:4, MAPE+0.03, as.character(round(MAPE,4)), col="blue", cex=0.7)
+text(1:4, MSE-0.03, as.character(round(MSE,4)), col="darkred", cex=0.7)
+legend(1.5, 0.63, c("MSE", "MAPE"), col=c("darkred","blue"), lty=1, bty="n", cex=0.7)
+```
+
+
+Training set 144 has the lowest MSE(.05) and MAPE(.084). This allows for us to conclude training set 144 has the most accurate predictions.
+
+Training set 48 has the highest MSE(0.14). We can conclude that training set 48 has the largest error rate and is sensitive to outliers due to the high MSE value.
+
+# Conclusion
+
+Our case study we used forecast classical and STL decomposition. We find the STL model was better to use as it is flexible and robust. The MSE and MAPE both have values that get close to zero as the training set number increases. This allows us to conclude the higher the training set the better the predictor of gas price they will be.
+Since our study shows some high MSE and MAPE values we can conclude there will be some failure of the model predictions of gas prices. Having two conflicting results warrants further investigation into the price of gas each month in the US. The results of the additive model suggest it would be a good idea to look into the multiplicative model as this would allow a different perspective of the data.
+
+# References
+
+Datopian. (n.d.). Natural gas prices. DataHub. https://datahub.io/core/natural-gas#data-cli 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
